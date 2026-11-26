@@ -1,4 +1,5 @@
 'use strict';
+const staticDemo = location.hostname.endsWith('.github.io');
 const byId = id => document.getElementById(id);
 const labels = {normal:'Normal', anomaly:'Anomaly', worst_anomaly:'Worst anomaly', offline:'ออฟไลน์', unknown:'รอผลจำแนก'};
 const pages = {overview:['ภาพรวมเครื่องจักร','Monitor'],alerts:['ศูนย์แจ้งเตือน','Alerts'],history:['ประวัติการวัด','History'],settings:['ตั้งค่าหน้าจอ','Settings']};
@@ -69,7 +70,7 @@ function current(){
 function render(){
     const d=state.data, cls=current(), predicted=classes.includes(cls);
     const source={board:d.connected?'สัญญาณสด':'บอร์ดออฟไลน์',offline:'ออฟไลน์',replay:'เล่นไฟล์บันทึก'}[d.source]||'ออฟไลน์';
-    byId('source').textContent=state.api?source:'API ออฟไลน์';
+    byId('source').textContent=staticDemo?'หน้าเดโม':state.api?source:'API ออฟไลน์';
     byId('source').dataset.source=state.api && (d.connected||d.source==='replay')?d.source:'offline';
     const notifications=list(d.alerts).filter(a=>!a.acknowledged).length;
     byId('alertCount').textContent=String(notifications);
@@ -78,7 +79,7 @@ function render(){
     if(state.view==='overview'){
         byId('statusCard').dataset.state=cls;
         byId('classification').textContent=labels[cls];
-        byId('health').textContent=state.api?(healthText[d.health]||d.health||'รอสถานะระบบ'):'เชื่อมต่อโปรแกรมรับข้อมูลไม่ได้';
+        byId('health').textContent=staticDemo?'เปิดหน้าตรวจจับสดเพื่อดูผลจากเครื่อง':state.api?(healthText[d.health]||d.health||'รอสถานะระบบ'):'เชื่อมต่อโปรแกรมรับข้อมูลไม่ได้';
         byId('updated').textContent=markTime(d.updated_at);
         byId('version').textContent=d.model_version||'—';
         byId('sensor').textContent=!state.api?'ขาดการเชื่อมต่อ':d.source==='replay'?'อ่านไฟล์บันทึก':d.connected?'เชื่อมต่อ':'ขาดการเชื่อมต่อ';
@@ -161,7 +162,7 @@ function renderHistory(){
     byId('performance').replaceChildren(elem('p',p.available?'ผลชุดทดสอบอิสระ':'ผลระหว่างพัฒนา · รอทดสอบรอบเดินเครื่องอิสระ','muted'),dl);
 }
 async function loadPerformance(){
-    if(state.performance?.available)return;
+    if(staticDemo || state.performance?.available)return;
     try{const res=await fetch('/api/performance',{cache:'no-store',signal:AbortSignal.timeout(3500)});if(res.ok)state.performance=await res.json();}catch{}
     if(state.view==='history')renderHistory();
 }
@@ -270,4 +271,9 @@ window.addEventListener('hashchange',route);
 setupBars();syncPrefs();route();
 const updateClock=()=>byId('clock').textContent=time(Date.now()/1000);
 updateClock();setInterval(updateClock,1000);
-(async function poll(){await refresh();setTimeout(poll,850);})();
+if (staticDemo) {
+    byId('pagesHint').hidden=false;
+    document.querySelector('a[download]').hidden=true;
+} else {
+    (async function poll(){await refresh();setTimeout(poll,850);})();
+}
